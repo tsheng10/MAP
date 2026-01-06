@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>Density-Style IoT Monitor V9.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <style>
+        /* =========================================
+           UI Theme: Premium Dark (Density Style)
+           ========================================= */
+        :root {
+            --bg-body: #0f1115;      /* 深色背景 */
+            --bg-panel: #1a1d24;     /* 面板背景 */
+            --primary: #00f0ff;      /* 科技蓝/青 */
+            --accent: #ff0055;       /* 警示红 */
+            --text-main: #ffffff;
+            --text-sub: #9ca3af;
+            --border: #2d3748;
+        }
+
+        body, html, #container { width: 100%; height: 100%; margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; background: var(--bg-body); overflow: hidden; color: var(--text-main); }
+
+        /* 顶部导航 */
+        .navbar {
+            position: absolute; top: 0; width: 100%; height: 64px;
+            background: rgba(15, 17, 21, 0.9); backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 500; box-sizing: border-box;
+        }
+        .nav-brand { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
+        .nav-brand span { color: var(--primary); }
+        .btn-action {
+            padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border);
+            background: var(--bg-panel); color: var(--text-main); cursor: pointer;
+            font-size: 13px; font-weight: 500; transition: 0.2s; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-action:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-action.active { background: var(--primary); color: #000; border-color: var(--primary); }
+
+        /* 左侧面板 */
+        .panel {
+            position: absolute; top: 84px; left: 24px; width: 380px;
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+            display: flex; flex-direction: column; z-index: 400;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-height: calc(100vh - 110px); overflow-y: auto;
+        }
+        .panel-head { padding: 20px; border-bottom: 1px solid var(--border); }
+        .panel-title { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
+        .panel-sub { font-size: 12px; color: var(--text-sub); display: flex; align-items: center; gap: 6px; }
+        
+        /* 硬件接口状态栏 */
+        .iot-status-bar {
+            background: rgba(0, 240, 255, 0.05); border: 1px dashed var(--primary);
+            padding: 12px; margin: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .iot-label { font-size: 12px; color: var(--primary); font-weight: bold; }
+        .iot-indicator { font-size: 11px; display: flex; align-items: center; gap: 6px; color: var(--text-sub); }
+        .dot { width: 6px; height: 6px; background: #555; border-radius: 50%; }
+        .dot.online { background: #00ff88; box-shadow: 0 0 8px #00ff88; animation: pulse 2s infinite; }
+
+        /* 数据网格 */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 20px 20px; }
+        .card { background: #232730; padding: 15px; border-radius: 6px; position: relative; }
+        .card-lbl { font-size: 11px; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; }
+        .card-val { font-size: 24px; font-weight: 700; color: #fff; }
+        .source-tag { position: absolute; top: 10px; right: 10px; font-size: 9px; padding: 2px 4px; border-radius: 2px; }
+        .tag-iot { background: rgba(0,240,255,0.15); color: var(--primary); border: 1px solid rgba(0,240,255,0.3); }
+        .tag-api { background: rgba(255,255,255,0.1); color: #ccc; }
+
+        /* 图表区 */
+        .chart-area { height: 160px; padding: 0 20px 20px; }
+        
+        /* AI Chatbot */
+        .chatbot {
+            position: absolute; bottom: 24px; right: 24px; width: 340px;
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 500; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .chat-head { background: #232730; padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+        .chat-body { height: 250px; padding: 15px; overflow-y: auto; background: #15181e; }
+        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4; max-width: 85%; }
+        .msg.bot { background: #2d3748; color: #fff; align-self: flex-start; }
+        .msg.user { background: var(--primary); color: #000; align-self: flex-end; margin-left: auto; }
+        .chat-input { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+        .inp { flex: 1; background: #0f1115; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 4px; font-size: 12px; outline: none; }
+
+        /* Report Modal (Paywall) */
+        .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal { width: 600px; background: #fff; color: #333; border-radius: 8px; overflow: hidden; animation: slideUp 0.3s; }
+        .modal-body { padding: 40px; position: relative; }
+        .blur-content { filter: blur(5px); opacity: 0.6; pointer-events: none; user-select: none; }
+        .paywall { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        .btn-unlock { background: #000; color: #fff; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: none; transition: transform 0.2s; }
+        .btn-unlock:hover { transform: scale(1.05); }
+
+        @keyframes pulse { 0% {opacity: 1;} 50% {opacity: 0.4;} 100% {opacity: 1;} }
+        @keyframes slideUp { from {transform: translateY(20px); opacity:0;} to {transform: translateY(0); opacity:1;} }
+    </style>
+
+    <script type="text/javascript">
+        window._AMapSecurityConfig = { securityJsCode: 'c26bae17eef0083d09159f44206407ff' }
+    </script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=d8c07a05572ccedd4066c7543b7aaea8&plugin=AMap.MouseTool,AMap.Scale,AMap.PlaceSearch,AMap.Geocoder,AMap.Weather"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="ri-sensor-line" style="color:var(--primary); font-size:24px;"></i>
+            DENSITY <span>.AI</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-action" id="btn-select" onclick="toggleSelection()">
+                <i class="ri-add-circle-line"></i> New Site
+            </button>
+            <button class="btn-action" onclick="showReport()">
+                <i class="ri-file-shield-2-line"></i> Generate Report
+            </button>
+        </div>
+    </nav>
+
+    <!-- 地图容器 -->
+    <div id="container"></div>
+
+    <!-- 左侧面板 -->
+    <div class="panel">
+        <div class="panel-head">
+            <div class="panel-title" id="site-name">No Site Selected</div>
+            <div class="panel-sub" id="site-addr"><i class="ri-map-pin-2-line"></i> Select a location to start</div>
+        </div>
+
+        <!-- 硬件接口部分 (The Density Interface) -->
+        <div class="iot-status-bar">
+            <div>
+                <div class="iot-label">HARDWARE INTERFACE</div>
+                <div style="font-size:10px; color:#666;">Sensor ID: <span id="sensor-id">--</span></div>
+            </div>
+            <div class="iot-indicator">
+                <span id="iot-status-text">Disconnected</span>
+                <div class="dot" id="iot-dot"></div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- IoT Data (Mocked but Interface Ready) -->
+            <div class="card">
+                <div class="card-lbl">Real-time Occupancy</div>
+                <div class="card-val" id="val-occupancy">--</div>
+                <div class="source-tag tag-iot">IOT</div>
+            </div>
+            <div class="card">
+                <div class="card-lbl">Dwell Time (min)</div>
+                <div class="card-val" id="val-dwell">--</div>
+                <div class="source-tag tag-iot">IOT</div>
+            </div>
+
+            <!-- Real API Data -->
+            <div class="card">
+                <div class="card-lbl">Weather / Temp</div>
+                <div class="card-val" id="val-temp">--°</div>
+                <div class="source-tag tag-api">API</div>
+            </div>
+            <div class="card">
+                <div class="card-lbl">Nearby POIs</div>
+                <div class="card-val" id="val-pois">--</div>
+                <div class="source-tag tag-api">API</div>
+            </div>
+        </div>
+
+        <div class="chart-area" id="chart-radar"></div>
+    </div>
+
+    <!-- AI Chatbot -->
+    <div class="chatbot">
+        <div class="chat-head">
+            <span><i class="ri-openai-fill"></i> Site Analyst</span>
+            <i class="ri-arrow-down-s-line" style="cursor:pointer;" onclick="this.parentElement.parentElement.classList.toggle('minimized')"></i>
+        </div>
+        <div class="chat-body" id="chat-box">
+            <div class="msg bot">Ready. Connect a sensor or select a site on the map to begin analysis.</div>
+        </div>
+        <div class="chat-input">
+            <input type="text" class="inp" id="chat-input" placeholder="Ask about traffic, context..." onkeypress="handleChat(event)">
+            <button style="background:var(--primary); border:none; border-radius:4px; cursor:pointer;" onclick="sendChat()"><i class="ri-send-plane-fill"></i></button>
+        </div>
+    </div>
+
+    <!-- Paywall Report Modal -->
+    <div class="modal-mask" id="report-modal">
+        <div class="modal">
+            <div style="padding:20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0;">Site Feasibility Report</h3>
+                <i class="ri-close-line" style="cursor:pointer; font-size:20px;" onclick="document.getElementById('report-modal').style.display='none'"></i>
+            </div>
+            <div class="modal-body">
+                <h3>1. Executive Summary</h3>
+                <p>Based on the selected coordinates, the site shows strong potential for commercial development due to high surrounding POI density.</p>
+                
+                <div style="position:relative; margin-top:20px;">
+                    <div class="blur-content">
+                        <h3>2. Competitor Traffic Analysis</h3>
+                        <p>Detailed analysis of foot traffic in comparison with 3 nearby malls shows a 15% deficit on weekdays but...</p>
+                        <img src="https://via.placeholder.com/500x150" style="width:100%;">
+                        <h3>3. ROI Projection</h3>
+                        <p>Projected return on investment within 3 years is estimated at...</p>
+                    </div>
+                    <div class="paywall">
+                        <i class="ri-lock-2-fill" style="font-size:32px; color:#333; margin-bottom:10px;"></i>
+                        <div style="font-weight:bold; margin-bottom:5px;">Unlock Full Report</div>
+                        <div style="font-size:12px; color:#666; margin-bottom:15px;">Includes Competitor Data & AI Predictions</div>
+                        <button class="btn-unlock" onclick="alert('Redirecting to payment...')">
+                            Subscribe ($49/mo) <i class="ri-arrow-right-line"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // -------------------------------------------------------------
+        // 1. Map & Tools Setup
+        // -------------------------------------------------------------
+        var map = new AMap.Map('container', {
+            zoom: 16,
+            center: [106.5235, 29.6318],
+            pitch: 50,
+            viewMode: '3D',
+            mapStyle: 'amap://styles/grey', // Deep grey for tech look
+        });
+
+        var geocoder = new AMap.Geocoder();
+        var weather = new AMap.Weather();
+        var placeSearch = new AMap.PlaceSearch({ pageSize: 50, type: '餐饮服务|购物服务|生活服务' });
+        
+        var isSelecting = false;
+        var currentPolygon = null;
+        var markers = [];
+
+        // ECharts Init
+        var chart = echarts.init(document.getElementById('chart-radar'));
+        var chartOption = {
+            radar: {
+                indicator: [{name:'Retail'},{name:'Food'},{name:'Transit'},{name:'Office'},{name:'Res'}],
+                splitArea: { areaStyle: { color: ['#1a1d24'] } },
+                axisLine: { lineStyle: { color: '#333' } },
+                splitLine: { lineStyle: { color: '#333' } }
+            },
+            series: [{
+                type: 'radar',
+                data: [{ value: [0,0,0,0,0], name: 'Site Context' }],
+                itemStyle: { color: '#00f0ff' },
+                areaStyle: { color: 'rgba(0, 240, 255, 0.2)' }
+            }]
+        };
+        chart.setOption(chartOption);
+
+        // -------------------------------------------------------------
+        // 2. Selection & Data Logic (The "Hybrid" Core)
+        // -------------------------------------------------------------
+        function toggleSelection() {
+            isSelecting = !isSelecting;
+            var btn = document.getElementById('btn-select');
+            if(isSelecting) {
+                btn.classList.add('active');
+                map.setDefaultCursor("crosshair");
+                map.on('click', handleMapClick);
+            } else {
+                btn.classList.remove('active');
+                map.setDefaultCursor("default");
+                map.off('click', handleMapClick);
+            }
+        }
+
+        function handleMapClick(e) {
+            var lnglat = [e.lnglat.getLng(), e.lnglat.getLat()];
+            
+            // 1. Draw UI
+            if(currentPolygon) map.remove(currentPolygon);
+            map.remove(markers); markers = [];
+            
+            var offset = 0.0015;
+            var path = [[lnglat[0]-offset, lnglat[1]+offset], [lnglat[0]+offset, lnglat[1]+offset], [lnglat[0]+offset, lnglat[1]-offset], [lnglat[0]-offset, lnglat[1]-offset]];
+            currentPolygon = new AMap.Polygon({ path: path, strokeColor: "#00f0ff", fillColor: "#00f0ff", fillOpacity: 0.1 });
+            map.add(currentPolygon);
+            map.panTo(lnglat);
+
+            // 2. Fetch Real Data (API)
+            fetchRealData(lnglat);
+
+            // 3. Connect IoT (Simulation Interface)
+            connectIoT(lnglat);
+            
+            toggleSelection(); // Turn off selection mode
+            
+            // 4. Trigger AI
+            setTimeout(() => addBotMsg("New site detected. Hardware connecting... Context analysis started."), 500);
+        }
+
+        // Fetch Real Map API Data
+        function fetchRealData(lnglat) {
+            // Address
+            geocoder.getAddress(lnglat, function(status, result) {
+                if(status === 'complete') {
+                    document.getElementById('site-name').innerText = "Selected Site";
+                    document.getElementById('site-addr').innerHTML = `<i class="ri-map-pin-2-line"></i> ${result.regeocode.formattedAddress}`;
+                    
+                    // Weather
+                    var district = result.regeocode.addressComponent.district;
+                    weather.getLive(district, function(err, data) {
+                        if(!err) document.getElementById('val-temp').innerText = data.temperature + "°";
+                    });
+                }
+            });
+
+            // POIs & Interactive Markers
+            placeSearch.searchNearBy('', lnglat, 500, function(status, result) {
+                if(status === 'complete') {
+                    var pois = result.poiList.pois;
+                    document.getElementById('val-pois').innerText = result.poiList.count;
+                    
+                    // Add Clickable Markers (Interaction)
+                    pois.forEach(p => {
+                        var m = new AMap.Marker({
+                            position: p.location,
+                            content: '<div style="width:8px; height:8px; background:#fff; border-radius:50%; box-shadow:0 0 5px #fff;"></div>',
+                            map: map
+                        });
+                        m.on('click', () => {
+                            new AMap.InfoWindow({
+                                content: `<div style="padding:5px; color:#333;"><b>${p.name}</b><br>${p.type}</div>`,
+                                offset: new AMap.Pixel(0,-10)
+                            }).open(map, p.location);
+                        });
+                        markers.push(m);
+                    });
+
+                    // Update Radar (Mock distribution based on count for demo)
+                    var c = result.poiList.count;
+                    chart.setOption({ series: [{ data: [{ value: [c*0.8, c*0.5, c*0.2, c*0.3, c*0.6] }] }] });
+                }
+            });
+        }
+
+        // Simulate IoT Hardware Connection
+        function connectIoT(lnglat) {
+            // UI State: Connecting
+            document.getElementById('iot-status-text').innerText = "Connecting Gateway...";
+            document.getElementById('iot-dot').className = "dot";
+            document.getElementById('iot-status-text').style.color = "#ffaa00";
+            document.getElementById('sensor-id').innerText = "--";
+            
+            // Simulate Network Delay
+            setTimeout(() => {
+                // UI State: Connected
+                document.getElementById('iot-status-text').innerText = "Online";
+                document.getElementById('iot-status-text').style.color = "#00ff88";
+                document.getElementById('iot-dot').className = "dot online";
+                document.getElementById('sensor-id').innerText = "DEN-" + Math.floor(Math.random()*10000); // Fake ID
+                
+                // Start Data Stream
+                startIoTPolling();
+                
+                addBotMsg("Sensor (ID: DEN-" + document.getElementById('sensor-id').innerText + ") successfully linked. Real-time occupancy stream active.");
+            }, 1500);
+        }
+
+        var iotInterval;
+        function startIoTPolling() {
+            if(iotInterval) clearInterval(iotInterval);
+            iotInterval = setInterval(() => {
+                // Here is where you would fetch('https://api.density.io/...')
+                // For demo, we mock the numbers
+                var occ = Math.floor(Math.random() * 50) + 120;
+                document.getElementById('val-occupancy').innerText = occ;
+                document.getElementById('val-dwell').innerText = (Math.random() * 10 + 5).toFixed(1);
+            }, 2000);
+        }
+
+        // -------------------------------------------------------------
+        // 3. AI Chatbot Logic
+        // -------------------------------------------------------------
+        function handleChat(e) { if(e.key === 'Enter') sendChat(); }
+        function sendChat() {
+            var inp = document.getElementById('chat-input');
+            var txt = inp.value.trim();
+            if(!txt) return;
+            
+            var box = document.getElementById('chat-box');
+            box.innerHTML += `<div class="msg user">${txt}</div>`;
+            inp.value = '';
+            box.scrollTop = box.scrollHeight;
+
+            setTimeout(() => {
+                var reply = "Analyzing...";
+                if(txt.toLowerCase().includes('traffic') || txt.toLowerCase().includes('people')) {
+                    reply = "IoT sensors indicate a steady flow of 120-150 people/hr. Peak times are 12:00 PM and 6:00 PM.";
+                } else if (txt.toLowerCase().includes('shop') || txt.toLowerCase().includes('food')) {
+                    reply = "High density of food & beverage outlets detected nearby. Competition is high.";
+                } else {
+                    reply = "I've updated the site metrics based on your query. Hardware signals are stable.";
+                }
+                addBotMsg(reply);
+            }, 800);
+        }
+        function addBotMsg(txt) {
+            var box = document.getElementById('chat-box');
+            box.innerHTML += `<div class="msg bot">${txt}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // -------------------------------------------------------------
+        // 4. Report Logic
+        // -------------------------------------------------------------
+        function showReport() {
+            document.getElementById('report-modal').style.display = 'flex';
+        }
+
+    </script>
+</body>
+</html>
